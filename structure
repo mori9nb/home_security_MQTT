@@ -1,0 +1,13 @@
+home_security_mqtt/
+├── docker-compose.yml          # Defines all services (broker, python app, databases)
+├── mosquitto/                  # Directory for Mosquitto configurations
+│   └── mosquitto.conf          # Mosquitto server configuration
+├── python_app/                 # Directory for your Python application code
+│   ├── Dockerfile              # Instructions to build your Python app image
+│   ├── requirements.txt        # Python dependencies
+│   └── main_collector.py       # Your main Python script to connect, process, store
+│   └── test_publisher.py       # (Optional) A script to simulate sensor data
+└── data/                       # Directory for persistent database data (Docker volumes will map here)
+    ├── postgres_data/
+    ├── mongodb_data/
+    └── neo4j_data/

@@ -9,7 +9,7 @@ import mysql.connector
 from neo4j import GraphDatabase
 
 
-MQTT_BROKER_HOST = "mosquitto_broker"
+MQTT_BROKER_HOST = os.environ.get("MQTT_BROKER_HOST", "mosquitto_broker")
 MQTT_BROKER_PORT = 1883
 
 MYSQL_USER = os.environ.get("MYSQL_USER")
@@ -31,7 +31,7 @@ mongo_client = None
 neo4j_driver = None
 
 def connect_databases():
-    global mysql_conn, mongo_conn, neo4j_conn
+    global mysql_conn, mongo_client, neo4j_driver
     try:
         print(f"Connecting to MySQL at {MYSQL_HOST}:{MYSQL_PORT}...")
         mysql_conn = mysql.connector.connect(
@@ -78,7 +78,7 @@ def on_connect(client, userdata, flags, rc, properties=None):
 def on_message(client, userdata, msg):
     print(f"Received message : Topic: '{msg.topic}', Payload: '{msg.payload.decode()}'")
     try:
-        payload = json.loads(msg.payload.decode())
+        payload_data = json.loads(msg.payload.decode())
     except json.JSONDecodeError:
         payload_data = {"raw_payload": msg.payload.decode()}
 
@@ -93,6 +93,7 @@ def on_message(client, userdata, msg):
                     (device_id, event_type, json.dumps(payload_data))
                 )
                 mysql_conn.commit()
+                mysql_cursor.close()
                 print(f"Stored door event in MYSQL: {device_id} - {event_type}")
             except Exception as db_e:
                 print(f"Error storing in MYSQL: {db_e}")
@@ -123,7 +124,7 @@ def on_message(client, userdata, msg):
                 timestamp = payload_data.get("timestamp", time.time())
 
                 with neo4j_driver.session() as session:
-                    session.write_transaction(
+                    session.execute_write(
                         lambda tx: tx.run(
                             """
                             MERGE (a:Alarm {id: $alarm_id})
@@ -157,13 +158,21 @@ client.on_connect = on_connect
 client.on_message = on_message
 
 try:
-    print(f"Attemting to connect to MQTT Broker at {MQTT_BROKER_HOST}:{MQTT_BROKER_PORT}...")
+    print(f"Attempting to connect to MQTT Broker at {MQTT_BROKER_HOST}:{MQTT_BROKER_PORT}...")
     client.connect(MQTT_BROKER_HOST, MQTT_BROKER_PORT, 60)
-    client.loop_forever()
+    client.loop_start()
+
+    while True:
+        time.sleep(1)
+
+except KeyboardInterrupt:
+    print("KeyboardInterrupt detected. Shutting down gracefully.")
+
 except Exception as e:
-    print(f"An Error occured :{e}")
+    print(f"An error occurred: {e}")
 
 finally:
+    client.loop_stop()
     if mysql_conn:
         mysql_conn.close()
         print("MySQL connection closed.")

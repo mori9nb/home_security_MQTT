@@ -1,6 +1,4 @@
-# python_app/requirements.txt
-paho-mqtt>=2.1.0
-tclab # If you're still using this for simulation (optional)
+paho-mqtt
+mysql-connector-python
 pymongo
-mysql-connector-python # For MySQL
-neo4j # For Neo4j
+neo4j
